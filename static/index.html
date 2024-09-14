@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Chat</title>
+    <style>
+        #messages {
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+        }
+        #input {
+            width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div id="registration">
+        <label for="register-username">Register Username:</label>
+        <input id="register-username" type="text" placeholder="Your username"/>
+        <button id="register">Register</button>
+    </div>
+    <div id="chat" style="display:none;">
+        <div>
+            <label for="recipient">Recipient:</label>
+            <input id="recipient" type="text" placeholder="Recipient username"/>
+        </div>
+        <div id="messages"></div>
+        <input id="input" type="text" placeholder="Type a message..."/>
+        <button id="send">Send</button>
+    </div>
+
+    <script>
+        let ws;
+        let username;
+
+        document.getElementById('register').onclick = () => {
+            const registerUsername = document.getElementById('register-username').value;
+            
+            if (!registerUsername) {
+                alert('Username is required');
+                return;
+            }
+
+            fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `username=${encodeURIComponent(registerUsername)}`
+            }).then(response => {
+                if (response.ok) {
+                    username = registerUsername;
+                    document.getElementById('registration').style.display = 'none';
+                    document.getElementById('chat').style.display = 'block';
+                    setupWebSocket();
+                } else {
+                    response.json().then(data => alert(data.error));
+                }
+            }).catch(error => console.error('Error registering user:', error));
+        };
+
+        function setupWebSocket() {
+            const wsUrl = `ws://${window.location.host}/ws?username=${encodeURIComponent(username)}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onmessage = (event) => {
+                const message = document.createElement('div');
+                message.textContent = event.data;
+                document.getElementById('messages').appendChild(message);
+                document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket connection closed');
+            };
+        }
+
+        document.getElementById('send').onclick = () => {
+            const recipient = document.getElementById('recipient').value;
+            const message = document.getElementById('input').value;
+
+            if (!recipient || !message) {
+                alert('Recipient and message are required');
+                return;
+            }
+
+            ws.send(`${recipient}:${message}`);
+            document.getElementById('input').value = '';
+        };
+    </script>
+</body>
+</html>
